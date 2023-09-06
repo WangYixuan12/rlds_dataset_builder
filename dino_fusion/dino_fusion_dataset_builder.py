@@ -178,7 +178,7 @@ class DinoFusion(tfds.core.GeneratorBasedBuilder):
         # for large datasets use beam to parallelize data parsing (this will have initialization overhead)
         beam = tfds.core.lazy_imports.apache_beam
         return (
-                beam.Create(path)
+                beam.Create([path])
                 | beam.Map(_parse_example)
         )
 
