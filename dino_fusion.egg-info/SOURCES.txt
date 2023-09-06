@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+dino_fusion/__init__.py
+dino_fusion/create_example_data.py
+dino_fusion/dino_fusion_dataset_builder.py
+dino_fusion.egg-info/PKG-INFO
+dino_fusion.egg-info/SOURCES.txt
+dino_fusion.egg-info/dependency_links.txt
+dino_fusion.egg-info/top_level.txt
