@@ -13,11 +13,12 @@ from tqdm import tqdm
 class UiucD3field(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for example dataset."""
 
-    VERSION = tfds.core.Version('1.1.1')
+    VERSION = tfds.core.Version('1.1.2')
     RELEASE_NOTES = {
       '1.0.0': 'Initial release.',
       '1.1.0': 'Add all data.',
-      '1.1.1': 'Downsample to 1fps.'
+      '1.1.1': 'Downsample to 1fps.',
+      '1.1.2': 'Remove some bad data'
     }
 
     def __init__(self, *args, **kwargs):
