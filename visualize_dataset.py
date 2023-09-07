@@ -36,8 +36,8 @@ ds = ds.shuffle(100)
 for i, episode in enumerate(ds.take(5)):
     images = []
     for step in episode['steps']:
-        images.append(step['observation']['image'].numpy())
-    image_strip = np.concatenate(images[::4], axis=1)
+        images.append(step['observation']['image_1'].numpy())
+    image_strip = np.concatenate(images[::200], axis=1)
     caption = step['language_instruction'].numpy().decode() + ' (temp. downsampled 4x)'
 
     if render_wandb:
@@ -53,8 +53,8 @@ for episode in tqdm.tqdm(ds.take(500)):
     for step in episode['steps']:
         actions.append(step['action'].numpy())
         states.append(step['observation']['state'].numpy())
-actions = np.array(actions)
-states = np.array(states)
+actions = np.array(actions).reshape(-1, 3)
+states = np.array(states).reshape(-1, 16)
 action_mean = actions.mean(0)
 state_mean = states.mean(0)
 

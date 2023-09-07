@@ -7,14 +7,17 @@ import tensorflow_datasets as tfds
 import tensorflow_hub as hub
 import os
 import cv2
+from tqdm import tqdm
 
 
-class DinoFusion(tfds.core.GeneratorBasedBuilder):
+class UiucD3field(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for example dataset."""
 
-    VERSION = tfds.core.Version('1.0.0')
+    VERSION = tfds.core.Version('1.1.1')
     RELEASE_NOTES = {
       '1.0.0': 'Initial release.',
+      '1.1.0': 'Add all data.',
+      '1.1.1': 'Downsample to 1fps.'
     }
 
     def __init__(self, *args, **kwargs):
@@ -126,41 +129,66 @@ class DinoFusion(tfds.core.GeneratorBasedBuilder):
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         """Define data splits."""
         return {
-            'train': self._generate_examples(path='/media/yixuan_2T/dynamic_repr/NeuRay/data/real_plan/utensils/2023-09-01-16-22-48-305914'),
+            'train': self._generate_examples(path='/media/yixuan_2T/dynamic_repr/NeuRay/data'),
         }
 
     def _generate_examples(self, path) -> Iterator[Tuple[str, Any]]:
         """Generator of examples for each split."""
 
         def _parse_example(episode_path):
+            print('Parsing episode: ', episode_path)
+            is_exp = episode_path.split('/')[6] == 'real_plan'
             # load raw data --> this should change for your dataset
-            total_steps = len(os.listdir(os.path.join(episode_path, 'camera_0', 'color')))
+            if is_exp:
+                total_steps = min(len(os.listdir(os.path.join(episode_path, 'camera_0', 'color'))), 1000)
+            else:
+                total_steps = min(len(glob.glob(os.path.join(episode_path, 'camera_0', 'color_*.png'))), 1000)
             # total_steps = 100
             episode = []
-            for i in range(total_steps):
+            for i in range(0, total_steps, 10):
                 curr_state = np.loadtxt(os.path.join(episode_path, 'pose', 'robotiq_base', f'{i}.txt')).astype(np.float32)
                 last_state = np.loadtxt(os.path.join(episode_path, 'pose', 'robotiq_base', f'{i-1}.txt')).astype(np.float32) if i > 0 else curr_state
-                episode.append({
-                    'observation': {
-                        'image_1': cv2.imread(os.path.join(episode_path, 'camera_0', 'color', f'{i}.png')),
-                        'depth_1': cv2.imread(os.path.join(episode_path, 'camera_0', 'depth', f'{i}.png'), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
-                        'image_2': cv2.imread(os.path.join(episode_path, 'camera_1', 'color', f'{i}.png')),
-                        'depth_2': cv2.imread(os.path.join(episode_path, 'camera_1', 'depth', f'{i}.png'), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
-                        'image_3': cv2.imread(os.path.join(episode_path, 'camera_2', 'color', f'{i}.png')),
-                        'depth_3': cv2.imread(os.path.join(episode_path, 'camera_2', 'depth', f'{i}.png'), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
-                        'image_4': cv2.imread(os.path.join(episode_path, 'camera_3', 'color', f'{i}.png')),
-                        'depth_4': cv2.imread(os.path.join(episode_path, 'camera_3', 'depth', f'{i}.png'), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
-                        'state': curr_state,
-                    },
-                    'action': curr_state[:3, 3] - last_state[:3, 3],
-                    'discount': 1.0,
-                    'reward': 0.0,
-                    'is_first': i == 0,
-                    'is_last': i == (total_steps - 1),
-                    'is_terminal': i == (total_steps - 1),
-                    'language_instruction': '',
-                    'language_embedding': np.zeros(512).astype(np.float32),
-                })
+                if is_exp:
+                    color_name = f'color/{i}.png'
+                    depth_name = f'depth/{i}.png'
+                else:
+                    color_name = f'color_{i}.png'
+                    depth_name = f'depth_{i}.png'
+                try:
+                    episode.append({
+                        'observation': {
+                            'image_1': cv2.imread(os.path.join(episode_path, 'camera_0', color_name))[..., ::-1],
+                            'depth_1': cv2.imread(os.path.join(episode_path, 'camera_0', depth_name), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
+                            'image_2': cv2.imread(os.path.join(episode_path, 'camera_1', color_name))[..., ::-1],
+                            'depth_2': cv2.imread(os.path.join(episode_path, 'camera_1', depth_name), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
+                            'image_3': cv2.imread(os.path.join(episode_path, 'camera_2', color_name))[..., ::-1],
+                            'depth_3': cv2.imread(os.path.join(episode_path, 'camera_2', depth_name), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
+                            'image_4': cv2.imread(os.path.join(episode_path, 'camera_3', color_name))[..., ::-1],
+                            'depth_4': cv2.imread(os.path.join(episode_path, 'camera_3', depth_name), cv2.IMREAD_ANYDEPTH)[..., np.newaxis],
+                            'state': curr_state,
+                        },
+                        'action': curr_state[:3, 3] - last_state[:3, 3],
+                        'discount': 1.0,
+                        'reward': 0.0,
+                        'is_first': i == 0,
+                        'is_last': i == (total_steps - 1),
+                        'is_terminal': i == (total_steps - 1),
+                        'language_instruction': '',
+                        'language_embedding': np.zeros(512).astype(np.float32),
+                    })
+                except:
+                    print('Error in ', episode_path)
+                    print(os.path.join(episode_path, 'camera_0', color_name))
+                    print(os.path.join(episode_path, 'camera_0', depth_name))
+                    # print(os.path.join(episode_path, 'camera_1', color_name))
+                    # print(os.path.join(episode_path, 'camera_1', depth_name))
+                    # print(os.path.join(episode_path, 'camera_2', color_name))
+                    # print(os.path.join(episode_path, 'camera_2', depth_name))
+                    # print(os.path.join(episode_path, 'camera_3', color_name))
+                    # print(os.path.join(episode_path, 'camera_3', depth_name))
+                    print(os.path.join(episode_path, 'pose', 'robotiq_base', f'{i}.txt'))
+                    print(os.path.join(episode_path, 'pose', 'robotiq_base', f'{i-1}.txt'))
+                    break
 
             # create output data sample
             sample = {
@@ -173,12 +201,49 @@ class DinoFusion(tfds.core.GeneratorBasedBuilder):
             # if you want to skip an example for whatever reason, simply return None
             return episode_path, sample
 
-        yield _parse_example(path)
+        paths = []
+        
+        exp_path = os.path.join(path, 'real_plan')
+        exclude_scenes = ['blank']
+        for scene_path in os.listdir(exp_path):
+            curr_scene_path = os.path.join(exp_path, scene_path)
+            if scene_path in exclude_scenes:
+                continue
+            for episode_path in os.listdir(curr_scene_path):
+                if episode_path[-4:] == '.zip':
+                    continue
+                if not os.path.exists(os.path.join(curr_scene_path, episode_path, 'pose')):
+                    continue
+                paths.append(os.path.join(curr_scene_path, episode_path))
+        
+        demo_path = os.path.join(path, 'dyn_data')
+        
+        exclude_date = ['extrinsics_cali']
+        exclude_scenes = ['wrong_gripper']
+        for date_path in os.listdir(demo_path):
+            if date_path in exclude_date:
+                continue
+            curr_date_path = os.path.join(demo_path, date_path)
+            for scene_path in os.listdir(curr_date_path):
+                curr_scene_path = os.path.join(curr_date_path, scene_path)
+                if scene_path in exclude_scenes:
+                    continue
+                for episode_path in os.listdir(curr_scene_path):
+                    if episode_path[-4:] == '.zip':
+                        continue
+                    if not os.path.exists(os.path.join(curr_scene_path, episode_path, 'pose')):
+                        continue
+                    paths.append(os.path.join(curr_scene_path, episode_path))
+        
+        print(f'Found {len(paths)} episodes')
+        print(paths)
+        for p in tqdm(paths):
+            yield _parse_example(p)
 
-        # for large datasets use beam to parallelize data parsing (this will have initialization overhead)
-        beam = tfds.core.lazy_imports.apache_beam
-        return (
-                beam.Create([path])
-                | beam.Map(_parse_example)
-        )
+        # # for large datasets use beam to parallelize data parsing (this will have initialization overhead)
+        # beam = tfds.core.lazy_imports.apache_beam
+        # return (
+        #         beam.Create([paths])
+        #         | beam.Map(_parse_example)
+        # )
 

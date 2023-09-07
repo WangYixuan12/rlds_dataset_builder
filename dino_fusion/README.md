@@ -1,1 +1,0 @@
-The dataset containing demonstration and experiments results from our ICRA 24 submission D^3Field: Dynamic 3D Descriptor Fields for Generalizable Robotic Manipulation. It contains four RGBD observations and end-effector poses.
